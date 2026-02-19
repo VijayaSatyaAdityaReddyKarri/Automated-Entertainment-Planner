@@ -18,8 +18,7 @@ st.title("🎟️ Chicago Automated Entertainment Planner")
 st.markdown("This dashboard serves live data extracted from Ticketmaster, Museums, and static sources via an automated ETL pipeline.")
 
 # --- DATA SERVING FUNCTION ---
-# We use st.cache_data so we don't hit the database every single time the user clicks a button
-@st.cache_data(ttl=3600) # Cache the data for 1 hour
+@st.cache_data(ttl=3600)
 def fetch_data():
     try:
         conn = psycopg2.connect(
@@ -29,15 +28,19 @@ def fetch_data():
             password=DB_PASSWORD,
             port=DB_PORT
         )
-        # The Data Engineer's query to serve the downstream app
+        # --- UPDATED QUERY: Now we select event_date and order by it! ---
         query = """
-            SELECT title, venue, neighborhood, price_min, category, deal_description, is_discounted 
+            SELECT title, event_date, venue, neighborhood, price_min, category, deal_description, is_discounted 
             FROM raw_events 
-            ORDER BY price_min ASC;
+            ORDER BY event_date ASC, price_min ASC;
         """
-        # Load the SQL results directly into a Pandas DataFrame
         df = pd.read_sql(query, conn)
         conn.close()
+        
+        # Tell Pandas to treat this column as a true Date/Time object
+        if 'event_date' in df.columns:
+            df['event_date'] = pd.to_datetime(df['event_date'])
+            
         return df
     except Exception as e:
         st.error(f"Database connection failed: {e}")
@@ -48,7 +51,6 @@ df = fetch_data()
 
 # --- THE USER INTERFACE ---
 if not df.empty:
-    # Create some interactive filters for the user
     st.subheader("Filter Events")
     col1, col2 = st.columns(2)
     
@@ -59,7 +61,7 @@ if not df.empty:
     with col2:
         show_only_free = st.checkbox("Show Only Free Events ($0.00)")
 
-    # Apply the filters to the Pandas DataFrame
+    # Apply filters
     filtered_df = df.copy()
     if selected_category != "All":
         filtered_df = filtered_df[filtered_df['category'] == selected_category]
@@ -72,11 +74,12 @@ if not df.empty:
         use_container_width=True,
         hide_index=True,
         column_config={
-            "price_min": st.column_config.NumberColumn("Minimum Price ($)", format="$%.2f")
+            "price_min": st.column_config.NumberColumn("Minimum Price ($)", format="$%.2f"),
+            # --- NEW FORMATTING: Make the date look nice for users ---
+            "event_date": st.column_config.DatetimeColumn("Date & Time", format="MMM DD, YYYY - hh:mm a")
         }
     )
     
-    # Show a quick DE metric
     st.metric(label="Total Events in Database", value=len(filtered_df))
 
 else:
