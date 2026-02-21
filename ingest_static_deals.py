@@ -36,11 +36,19 @@ def seed_recurring_deals():
         cur = conn.cursor()
 
         print("Inserting deals...")
+        
+        # --- NEW CODE: Generate the timestamp ---
+        event_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
         for deal in deals:
+            # We add the event_date to the end of our deal tuple
+            deal_with_date = deal + (event_date,)
+            
+            # Notice the added event_date column and the extra %s placeholder!
             cur.execute("""
-                INSERT INTO raw_events (title, venue, neighborhood, price_min, category, is_discounted, deal_description)
-                VALUES (%s, %s, %s, %s, %s, TRUE, %s)
-            """, deal)
+                INSERT INTO raw_events (title, venue, neighborhood, price_min, category, is_discounted, deal_description, event_date)
+                VALUES (%s, %s, %s, %s, %s, TRUE, %s, %s)
+            """, deal_with_date)
 
         conn.commit()
         print(f"✅ Success! Ingested {len(deals)} deals.")

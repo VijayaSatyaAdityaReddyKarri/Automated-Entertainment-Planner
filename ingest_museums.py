@@ -2,6 +2,7 @@ import psycopg2
 import requests
 import os
 from dotenv import load_dotenv
+from datetime import datetime
 
 # Load the secrets from the .env file
 load_dotenv()
@@ -61,12 +62,16 @@ def load_exhibitions_to_db(exhibitions):
             price_min = 26.00 
             category = "Museum/Art"
             description = "Free for Illinois residents on Thursdays 5 PM - 8 PM"
+            
+            # --- NEW CODE: Generate the timestamp ---
+            event_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
             # --- LOAD ---
+            # Notice we added event_date to the columns list, an extra %s, and event_date to the tuple!
             cur.execute("""
-                INSERT INTO raw_events (title, venue, neighborhood, price_min, category, is_discounted, deal_description)
-                VALUES (%s, %s, %s, %s, %s, TRUE, %s)
-            """, (title, venue, neighborhood, price_min, category, description))
+                INSERT INTO raw_events (title, venue, neighborhood, price_min, category, is_discounted, deal_description, event_date)
+                VALUES (%s, %s, %s, %s, %s, TRUE, %s, %s)
+            """, (title, venue, neighborhood, price_min, category, description, event_date))
             
             inserted_count += 1
 
