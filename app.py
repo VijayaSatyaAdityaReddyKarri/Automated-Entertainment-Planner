@@ -231,24 +231,11 @@ if not df.empty:
                 btn_html = ''
                 
             deal_note = f"💡 {deal_desc}" if not is_link and deal_desc else ""
+            deal_badge = '<span class="deal-pill">Deal</span>' if deal_desc else ''
 
-            # NO INDENTATION HERE TO FIX THE MARKDOWN BUG
-            card_html = f"""
-<div class="event-card">
-    <div class="card-header-row">
-        <span class="category-pill">{row['category']}</span>
-        {'<span class="deal-pill">Deal</span>' if deal_desc else ''}
-    </div>
-    <div class="event-title">{row['title']}</div>
-    <div class="event-detail">📅 {date_str}</div>
-    <div class="event-detail">📍 {row['venue']}</div>
-    <div class="card-footer-row">
-        <div class="event-price">{price_str}</div>
-        {btn_html}
-    </div>
-    <div class="deal-text">{deal_note}</div>
-</div>
-"""
+            # NO INDENTATION & ONE LINE TO FIX THE MARKDOWN BUG
+            card_html = f"""<div class="event-card"><div class="card-header-row"><span class="category-pill">{row['category']}</span>{deal_badge}</div><div class="event-title">{row['title']}</div><div class="event-detail">📅 {date_str}</div><div class="event-detail">📍 {row['venue']}</div><div class="card-footer-row"><div class="event-price">{price_str}</div>{btn_html}</div><div class="deal-text">{deal_note}</div></div>"""
+            
             with cols[col_idx]:
                 st.markdown(card_html, unsafe_allow_html=True)
 
