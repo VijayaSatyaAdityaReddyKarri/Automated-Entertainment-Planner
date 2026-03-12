@@ -78,11 +78,10 @@ st.markdown("""
         color: var(--primary) !important;
     }
 
-    /* 3. Live Badge Pulse */
-    @keyframes pulse {
-        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.7); }
-        70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(0, 230, 118, 0); }
-        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 230, 118, 0); }
+    /* 3. Live Badge Ripple Effect */
+    @keyframes ripple-wave {
+        0% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.8); }
+        100% { box-shadow: 0 0 0 12px rgba(0, 230, 118, 0); }
     }
     .live-badge {
         display: inline-flex;
@@ -91,18 +90,23 @@ st.markdown("""
         padding: 6px 12px;
         border-radius: 20px;
         border: 1px solid var(--border);
-        color: var(--success);
-        font-size: 14px;
+        color: var(--muted-foreground);
+        font-size: 13px;
         font-weight: 600;
         margin-bottom: 15px;
     }
     .pulse-dot {
-        width: 8px; height: 8px;
+        width: 8px; 
+        height: 8px;
         background-color: var(--success);
         border-radius: 50%;
         margin-right: 8px;
-        animation: pulse 2s infinite;
-        box-shadow: 0 0 8px var(--success);
+        /* The ripple animation makes a wave expand and dissolve */
+        animation: ripple-wave 1.5s infinite cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    .live-text {
+        color: var(--foreground);
+        margin-left: 4px;
     }
 
     /* 4. Glassmorphism Event Card */
@@ -121,7 +125,7 @@ st.markdown("""
         animation: fade-in 0.3s ease-out forwards;
         transition: all 0.3s ease; 
         border: 1px solid var(--border);
-        height: 310px; /* FIX: Strict height for uniformity */
+        height: 310px; 
         display: flex;
         flex-direction: column;
         font-family: 'Inter', sans-serif;
@@ -149,8 +153,8 @@ st.markdown("""
         font-weight: 700; color: var(--foreground); font-size: 1.1rem; 
         margin-bottom: 0.75rem; line-height: 1.375; transition: color 0.2s; 
         margin-top: 0; 
-        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; /* Clamp to 2 lines */
-        min-height: 48px; /* FIX: Force minimum height so 1-line and 2-line titles match perfectly */
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; 
+        min-height: 48px; 
     }
     .event-card:hover .card-title { color: var(--primary); }
 
@@ -186,13 +190,13 @@ st.markdown("""
 
 # Category Color Mapping
 CATEGORY_COLORS = {
-    "Museum/Art": ("#B026FF", "rgba(176, 38, 255, 0.15)"),   # Neon Purple
-    "Comedy": ("#FFB300", "rgba(255, 179, 0, 0.15)"),        # Amber/Yellow
-    "Theater": ("#FF3366", "rgba(255, 51, 102, 0.15)"),      # Pink/Red
-    "Music": ("#3B82F6", "rgba(59, 130, 246, 0.15)"),        # Blue
-    "Food & Drink": ("#00E676", "rgba(0, 230, 118, 0.15)"),  # Green
-    "Sports": ("#F97316", "rgba(249, 115, 22, 0.15)"),       # Orange
-    "Movie": ("#06B6D4", "rgba(6, 182, 212, 0.15)")          # Cyan
+    "Museum/Art": ("#B026FF", "rgba(176, 38, 255, 0.15)"),   
+    "Comedy": ("#FFB300", "rgba(255, 179, 0, 0.15)"),        
+    "Theater": ("#FF3366", "rgba(255, 51, 102, 0.15)"),      
+    "Music": ("#3B82F6", "rgba(59, 130, 246, 0.15)"),        
+    "Food & Drink": ("#00E676", "rgba(0, 230, 118, 0.15)"),  
+    "Sports": ("#F97316", "rgba(249, 115, 22, 0.15)"),       
+    "Movie": ("#06B6D4", "rgba(6, 182, 212, 0.15)")          
 }
 
 @st.cache_data(ttl=3600)
@@ -225,11 +229,12 @@ if not df.empty:
     with colA:
         st.markdown("<h2 style='color: white; margin-bottom: 0; font-family: Inter;'>⚡ Chicago Entertainment Planner</h2>", unsafe_allow_html=True)
     with colB:
+        # Implemented new ripple dot and matched formatting from the Lovable screenshot
         st.markdown(f"""
         <div style="text-align: right; margin-top: 10px;">
             <div class="live-badge">
                 <div class="pulse-dot"></div>
-                {len(df)} Live Events
+                <span class="live-text">{len(df)} Live Events</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -286,9 +291,8 @@ if not df.empty:
             deal_badge = '<span class="pill-deal">Deal</span>' if deal_desc or row.get('is_discounted') else ''
             price_class = "price-free" if price_str == "FREE" else "price-text"
 
-            # Dynamic Category Color Logic
             cat_val = row['category']
-            cat_color, cat_bg = CATEGORY_COLORS.get(cat_val, ("#94A3B8", "rgba(148, 163, 184, 0.15)")) # Default Gray
+            cat_color, cat_bg = CATEGORY_COLORS.get(cat_val, ("#94A3B8", "rgba(148, 163, 184, 0.15)")) 
 
             card_html = f"""
             <div class="event-card" style="animation-delay: {index * 30}ms;">
