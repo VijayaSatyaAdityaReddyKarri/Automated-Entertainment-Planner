@@ -25,15 +25,13 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
     :root {
-        --background: #0B0F19; /* Deep Slate */
+        --background: #0B0F19; 
         --foreground: #F8FAFC;
-        --card: rgba(15, 23, 42, 0.4); /* Glassmorphism Base */
-        --primary: #00D2FF; /* Electric Cyan/Blue */
+        --card: rgba(15, 23, 42, 0.4); 
+        --primary: #00D2FF; 
         --primary-alpha: rgba(0, 210, 255, 0.1);
-        --success: #00E676; /* Neon Emerald Green */
+        --success: #00E676; 
         --success-alpha: rgba(0, 230, 118, 0.1);
-        --category: #B026FF; /* Neon Purple */
-        --category-alpha: rgba(176, 38, 255, 0.1);
         --muted-foreground: #94A3B8;
         --border: rgba(30, 41, 59, 0.8);
         --surface: rgba(15, 23, 42, 0.8);
@@ -74,7 +72,7 @@ st.markdown("""
         background-color: var(--primary-alpha);
         color: var(--primary);
         border: 1px solid var(--primary);
-        box-shadow: 0 0 15px rgba(0, 210, 255, 0.2); /* Neon Tab Glow */
+        box-shadow: 0 0 15px rgba(0, 210, 255, 0.2); 
     }
     [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] p {
         color: var(--primary) !important;
@@ -118,12 +116,12 @@ st.markdown("""
         -webkit-backdrop-filter: blur(12px);
         border-radius: 0.75rem; 
         padding: 1.25rem; 
-        margin-bottom: 24px; /* FIX: Added margin to un-merge cards */
+        margin-bottom: 24px; 
         cursor: pointer;
         animation: fade-in 0.3s ease-out forwards;
         transition: all 0.3s ease; 
         border: 1px solid var(--border);
-        height: calc(100% - 24px); 
+        height: 310px; /* FIX: Strict height for uniformity */
         display: flex;
         flex-direction: column;
         font-family: 'Inter', sans-serif;
@@ -131,7 +129,7 @@ st.markdown("""
     .event-card:hover {
         transform: translateY(-4px);
         border-color: var(--primary);
-        box-shadow: 0 0 20px rgba(0, 210, 255, 0.15), inset 0 0 10px rgba(0, 210, 255, 0.05); /* Cyber Glow */
+        box-shadow: 0 0 20px rgba(0, 210, 255, 0.15), inset 0 0 10px rgba(0, 210, 255, 0.05); 
     }
 
     /* Card Elements */
@@ -139,7 +137,7 @@ st.markdown("""
     
     .pill-category { 
         font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.625rem; border-radius: 9999px; 
-        background-color: var(--category-alpha); color: var(--category); border: 1px solid rgba(176, 38, 255, 0.3);
+        border: 1px solid transparent;
     }
     .pill-deal { 
         font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.625rem; border-radius: 9999px; 
@@ -147,7 +145,13 @@ st.markdown("""
         box-shadow: 0 0 8px rgba(0, 230, 118, 0.2);
     }
     
-    .card-title { font-weight: 700; color: var(--foreground); font-size: 1.1rem; margin-bottom: 0.75rem; line-height: 1.375; transition: color 0.2s; margin-top: 0; }
+    .card-title { 
+        font-weight: 700; color: var(--foreground); font-size: 1.1rem; 
+        margin-bottom: 0.75rem; line-height: 1.375; transition: color 0.2s; 
+        margin-top: 0; 
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; /* Clamp to 2 lines */
+        min-height: 48px; /* FIX: Force minimum height so 1-line and 2-line titles match perfectly */
+    }
     .event-card:hover .card-title { color: var(--primary); }
 
     .card-meta { display: flex; align-items: center; gap: 0.5rem; color: var(--muted-foreground); font-size: 0.85rem; margin-bottom: 0.5rem; }
@@ -175,9 +179,21 @@ st.markdown("""
         background-color: rgba(0, 210, 255, 0.2); box-shadow: 0 0 15px rgba(0, 210, 255, 0.3); transform: scale(1.02);
     }
     
-    .deal-text { margin-top: 0.75rem; font-size: 0.75rem; color: var(--success); font-weight: 500; margin-bottom: 0; }
+    .deal-text { margin-top: 0.75rem; font-size: 0.75rem; color: var(--success); font-weight: 500; margin-bottom: 0; 
+                 display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 </style>
 """, unsafe_allow_html=True)
+
+# Category Color Mapping
+CATEGORY_COLORS = {
+    "Museum/Art": ("#B026FF", "rgba(176, 38, 255, 0.15)"),   # Neon Purple
+    "Comedy": ("#FFB300", "rgba(255, 179, 0, 0.15)"),        # Amber/Yellow
+    "Theater": ("#FF3366", "rgba(255, 51, 102, 0.15)"),      # Pink/Red
+    "Music": ("#3B82F6", "rgba(59, 130, 246, 0.15)"),        # Blue
+    "Food & Drink": ("#00E676", "rgba(0, 230, 118, 0.15)"),  # Green
+    "Sports": ("#F97316", "rgba(249, 115, 22, 0.15)"),       # Orange
+    "Movie": ("#06B6D4", "rgba(6, 182, 212, 0.15)")          # Cyan
+}
 
 @st.cache_data(ttl=3600)
 def fetch_data():
@@ -221,7 +237,7 @@ if not df.empty:
     col1, col2, col3 = st.columns([2, 2, 6])
     
     with col1:
-        categories = ["All"] + list(df['category'].unique())
+        categories = ["All"] + list(df['category'].dropna().unique())
         selected_category = st.selectbox("Filter by Category", categories, label_visibility="collapsed")
         
     with col2:
@@ -270,13 +286,19 @@ if not df.empty:
             deal_badge = '<span class="pill-deal">Deal</span>' if deal_desc or row.get('is_discounted') else ''
             price_class = "price-free" if price_str == "FREE" else "price-text"
 
+            # Dynamic Category Color Logic
+            cat_val = row['category']
+            cat_color, cat_bg = CATEGORY_COLORS.get(cat_val, ("#94A3B8", "rgba(148, 163, 184, 0.15)")) # Default Gray
+
             card_html = f"""
             <div class="event-card" style="animation-delay: {index * 30}ms;">
                 <div class="card-top-row">
-                    <span class="pill-category">{row['category']}</span>
+                    <span class="pill-category" style="color: {cat_color}; background-color: {cat_bg}; border-color: {cat_color}40;">
+                        {cat_val}
+                    </span>
                     {deal_badge}
                 </div>
-                <h3 class="card-title">{row['title']}</h3>
+                <h3 class="card-title" title="{row['title']}">{row['title']}</h3>
                 <div style="margin-bottom: 1rem;">
                     <div class="card-meta">📅 <span>{date_str}</span></div>
                     <div class="card-meta">📍 <span>{row['venue']}</span></div>
@@ -288,7 +310,7 @@ if not df.empty:
                     </div>
                     {btn_html}
                 </div>
-                {f'<p class="deal-text">{deal_note}</p>' if deal_note else ''}
+                {f'<p class="deal-text" title="{deal_note}">{deal_note}</p>' if deal_note else ''}
             </div>
             """
             
@@ -327,7 +349,6 @@ if not df.empty:
                 </div>
                 """
 
-                # Update Icon to match the electric blue theme
                 icon = plugins.BeautifyIcon(
                     icon_shape='marker',
                     number=event_count,
