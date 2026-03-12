@@ -18,12 +18,9 @@ DB_NAME = "postgres"
 # Page configuration
 st.set_page_config(page_title="Chicago Entertainment Planner", layout="wide", initial_sidebar_state="collapsed")
 
-# --- CUSTOM CSS FOR REFINED DARK MODE ---
+# --- CUSTOM CSS FOR CARDS & BADGES ---
 st.markdown("""
 <style>
-    /* Richer Midnight Background */
-    .stApp { background-color: #0B0F19; }
-    
     /* Hide Streamlit Header/Footer */
     header {visibility: hidden;}
     footer {visibility: hidden;}
@@ -37,7 +34,7 @@ st.markdown("""
     .live-badge {
         display: inline-flex;
         align-items: center;
-        background-color: #151B2B; /* Slightly lighter than bg */
+        background-color: #151B2B;
         padding: 6px 12px;
         border-radius: 20px;
         border: 1px solid #1E293B;
@@ -57,11 +54,11 @@ st.markdown("""
 
     /* Elevated Event Card */
     .event-card {
-        background-color: #111827; /* Rich Slate */
+        background-color: #111827;
         border-radius: 12px;
         padding: 20px;
         margin-bottom: 20px;
-        border: 1px solid #1E293B; /* Subtle border */
+        border: 1px solid #1E293B;
         box-shadow: 0 4px 6px rgba(0,0,0,0.4);
         transition: transform 0.2s, border-color 0.2s;
         height: 100%;
@@ -227,32 +224,31 @@ if not df.empty:
             deal_desc = str(row['deal_description']) if pd.notnull(row['deal_description']) else ""
             is_link = deal_desc.startswith('http')
             
-            # FIX: Only create the button HTML if there is a real website link
             if is_link:
                 btn_text = "Get Tickets" if "ticket" in deal_desc.lower() else "More Info"
                 btn_html = f'<a href="{deal_desc}" target="_blank" class="get-tickets-btn">{btn_text}</a>'
             else:
-                btn_html = '' # No button!
+                btn_html = ''
                 
             deal_note = f"💡 {deal_desc}" if not is_link and deal_desc else ""
 
+            # NO INDENTATION HERE TO FIX THE MARKDOWN BUG
             card_html = f"""
-            <div class="event-card">
-                <div class="card-header-row">
-                    <span class="category-pill">{row['category']}</span>
-                    {'<span class="deal-pill">Deal</span>' if deal_desc else ''}
-                </div>
-                <div class="event-title">{row['title']}</div>
-                <div class="event-detail">📅 {date_str}</div>
-                <div class="event-detail">📍 {row['venue']}</div>
-                <div class="card-footer-row">
-                    <div class="event-price">{price_str}</div>
-                    {btn_html}
-                </div>
-                <div class="deal-text">{deal_note}</div>
-            </div>
-            """
-            
+<div class="event-card">
+    <div class="card-header-row">
+        <span class="category-pill">{row['category']}</span>
+        {'<span class="deal-pill">Deal</span>' if deal_desc else ''}
+    </div>
+    <div class="event-title">{row['title']}</div>
+    <div class="event-detail">📅 {date_str}</div>
+    <div class="event-detail">📍 {row['venue']}</div>
+    <div class="card-footer-row">
+        <div class="event-price">{price_str}</div>
+        {btn_html}
+    </div>
+    <div class="deal-text">{deal_note}</div>
+</div>
+"""
             with cols[col_idx]:
                 st.markdown(card_html, unsafe_allow_html=True)
 
@@ -261,7 +257,6 @@ if not df.empty:
         map_df = filtered_df.dropna(subset=['lat', 'lon'])
 
         if not map_df.empty:
-            # FIX: Added scrollWheelZoom=False to prevent map scroll trapping
             chicago_map = folium.Map(location=[41.8781, -87.6298], zoom_start=11, tiles="CartoDB dark_matter", scrollWheelZoom=False)
             grouped = map_df.groupby(['venue', 'lat', 'lon'])
 
