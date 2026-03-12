@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import folium
 import folium.plugins as plugins
 from streamlit_folium import st_folium
+import urllib.parse
 
 # Load database credentials
 load_dotenv()
@@ -21,11 +22,9 @@ st.set_page_config(page_title="Chicago Entertainment Planner", layout="wide", in
 # --- CUSTOM CSS FOR CARDS & BADGES ---
 st.markdown("""
 <style>
-    /* Hide Streamlit Header/Footer */
     header {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* Pulsing Green Dot Animation */
     @keyframes pulse {
         0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
         70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
@@ -52,7 +51,6 @@ st.markdown("""
         animation: pulse 2s infinite;
     }
 
-    /* Elevated Event Card */
     .event-card {
         background-color: #111827;
         border-radius: 12px;
@@ -71,7 +69,6 @@ st.markdown("""
         box-shadow: 0 8px 12px rgba(0,0,0,0.5);
     }
     
-    /* Top Row: Category & Deal Badge */
     .card-header-row {
         display: flex;
         justify-content: space-between;
@@ -94,7 +91,6 @@ st.markdown("""
         font-weight: 600;
     }
     
-    /* Typography */
     .event-title {
         font-size: 18px;
         font-weight: 700;
@@ -108,7 +104,6 @@ st.markdown("""
         margin-bottom: 6px;
     }
     
-    /* Bottom Row */
     .card-footer-row {
         margin-top: auto;
         padding-top: 15px;
@@ -131,8 +126,16 @@ st.markdown("""
         font-size: 14px;
         font-weight: bold;
         transition: background-color 0.2s;
+        text-align: center;
     }
     .get-tickets-btn:hover { background-color: #2563EB; }
+    
+    /* Style for the secondary Search button */
+    .search-btn {
+        background-color: #374151;
+        color: #F3F4F6 !important;
+    }
+    .search-btn:hover { background-color: #4B5563; }
     
     .deal-text {
         font-size: 12px;
@@ -142,7 +145,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- DATA SERVING FUNCTION ---
 @st.cache_data(ttl=3600)
 def fetch_data():
     try:
@@ -169,7 +171,6 @@ def fetch_data():
 df = fetch_data()
 
 if not df.empty:
-    # --- HEADER SECTION ---
     colA, colB = st.columns([3, 1])
     with colA:
         st.markdown("<h2 style='color: white; margin-bottom: 0;'>🎭 Chicago Entertainment Planner</h2>", unsafe_allow_html=True)
@@ -183,7 +184,6 @@ if not df.empty:
         </div>
         """, unsafe_allow_html=True)
 
-    # --- FILTERS ---
     col1, col2, col3 = st.columns([2, 2, 6])
     
     with col1:
@@ -191,27 +191,23 @@ if not df.empty:
         selected_category = st.selectbox("Filter by Category", categories, label_visibility="collapsed")
         
     with col2:
-        st.write("") # Spacer
+        st.write("") 
         show_only_free = st.toggle("Free Events Only")
         
-    # Apply filters
     filtered_df = df.copy()
     if selected_category != "All":
         filtered_df = filtered_df[filtered_df['category'] == selected_category]
     if show_only_free:
         filtered_df = filtered_df[filtered_df['price_min'] == 0.0]
 
-    # --- TABS LAYOUT ---
-    st.write("") # Spacer
+    st.write("") 
     tab1, tab2 = st.tabs(["📇 Event Feed", "📍 Live Map"])
 
-    # --- TAB 1: EVENT FEED ---
     with tab1:
         cols = st.columns(3)
         for index, row in filtered_df.reset_index().iterrows():
             col_idx = index % 3
             
-            # Format Data
             date_str = row['event_date'].strftime('%b %d, %Y - %I:%M %p') if pd.notnull(row['event_date']) else 'Time TBA'
             
             if pd.isna(row['price_min']):
@@ -224,22 +220,28 @@ if not df.empty:
             deal_desc = str(row['deal_description']) if pd.notnull(row['deal_description']) else ""
             is_link = deal_desc.startswith('http')
             
+            # --- BUTTON LOGIC FIX ---
             if is_link:
                 btn_text = "Get Tickets" if "ticket" in deal_desc.lower() else "More Info"
-                btn_html = f'<a href="{deal_desc}" target="_blank" class="get-tickets-btn">{btn_text}</a>'
+                btn_class = "get-tickets-btn"
+                link_url = deal_desc
             else:
-                btn_html = ''
+                btn_text = "Search Event"
+                btn_class = "get-tickets-btn search-btn"
+                # Create a Google Search query
+                search_query = urllib.parse.quote_plus(f"{row['title']} {row['venue']} Chicago")
+                link_url = f"https://www.google.com/search?q={search_query}"
+                
+            btn_html = f'<a href="{link_url}" target="_blank" class="{btn_class}">{btn_text}</a>'
                 
             deal_note = f"💡 {deal_desc}" if not is_link and deal_desc else ""
             deal_badge = '<span class="deal-pill">Deal</span>' if deal_desc else ''
 
-            # NO INDENTATION & ONE LINE TO FIX THE MARKDOWN BUG
             card_html = f"""<div class="event-card"><div class="card-header-row"><span class="category-pill">{row['category']}</span>{deal_badge}</div><div class="event-title">{row['title']}</div><div class="event-detail">📅 {date_str}</div><div class="event-detail">📍 {row['venue']}</div><div class="card-footer-row"><div class="event-price">{price_str}</div>{btn_html}</div><div class="deal-text">{deal_note}</div></div>"""
             
             with cols[col_idx]:
                 st.markdown(card_html, unsafe_allow_html=True)
 
-    # --- TAB 2: LIVE MAP ---
     with tab2:
         map_df = filtered_df.dropna(subset=['lat', 'lon'])
 
@@ -249,10 +251,29 @@ if not df.empty:
 
             for (venue, lat, lon), group in grouped:
                 event_count = len(group)
-                popup_html = f"""<div style="width: 250px; font-family: Arial; color: #333;">
-                    <h4 style="margin-top: 0; color: #3B82F6;">{venue}</h4>
-                    <p><b>{event_count} Event(s)</b></p>
-                </div>"""
+                
+                # --- MAP POPUP FIX ---
+                events_list_html = ""
+                for _, e_row in group.iterrows():
+                    e_title = str(e_row['title']).replace("'", "&#39;")
+                    e_time = e_row['event_date'].strftime('%I:%M %p') if pd.notnull(e_row['event_date']) else ''
+                    e_price = "FREE" if e_row['price_min'] == 0 else (f"${e_row['price_min']:.2f}" if pd.notnull(e_row['price_min']) else "Varies")
+                    
+                    events_list_html += f"""
+                    <li style='margin-bottom: 6px; line-height: 1.2;'>
+                        <strong>{e_title}</strong><br>
+                        <span style='color: #666; font-size: 11px;'>{e_time} • {e_price}</span>
+                    </li>
+                    """
+
+                popup_html = f"""
+                <div style="width: 260px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; max-height: 250px; overflow-y: auto;">
+                    <h4 style="margin-top: 0; color: #3B82F6; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #E5E7EB; font-size: 14px;">{venue}</h4>
+                    <ul style="padding-left: 15px; margin-top: 0; font-size: 12px; list-style-type: disc;">
+                        {events_list_html}
+                    </ul>
+                </div>
+                """
 
                 icon = plugins.BeautifyIcon(
                     icon_shape='marker',
@@ -265,7 +286,7 @@ if not df.empty:
                 folium.Marker(
                     location=[lat, lon],
                     popup=folium.Popup(popup_html, max_width=300),
-                    tooltip=f"{venue}",
+                    tooltip=f"{venue} ({event_count} Events)",
                     icon=icon
                 ).add_to(chicago_map)
 
