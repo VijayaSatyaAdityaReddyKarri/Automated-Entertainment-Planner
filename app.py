@@ -15,25 +15,121 @@ DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_PORT = "5432"
 DB_NAME = "postgres"
 
-# Page configuration
-st.set_page_config(page_title="Automated Entertainment Planner", layout="wide")
-st.title("🎟️ Chicago Entertainment Planner")
-st.markdown("This dashboard serves live data extracted from Ticketmaster, Museums, and static sources via an automated ETL pipeline.")
+# Page configuration - Set to wide mode and dark theme
+st.set_page_config(page_title="Chicago Entertainment Planner", layout="wide", initial_sidebar_state="collapsed")
+
+# --- CUSTOM CSS FOR LOVABLE DESIGN ---
+st.markdown("""
+<style>
+    /* Main Background & Text */
+    .stApp {
+        background-color: #0E1117;
+        color: #FAFAFA;
+    }
+    
+    /* Custom Event Card */
+    .event-card {
+        background-color: #1A1C23;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #2D303E;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        transition: transform 0.2s;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .event-card:hover {
+        transform: translateY(-5px);
+        border-color: #3B82F6;
+    }
+    
+    /* Top Row: Category & Deal Badge */
+    .card-header-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 12px;
+    }
+    .category-pill {
+        background-color: rgba(59, 130, 246, 0.2);
+        color: #60A5FA;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .deal-pill {
+        background-color: rgba(16, 185, 129, 0.2);
+        color: #34D399;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    
+    /* Title */
+    .event-title {
+        font-size: 18px;
+        font-weight: bold;
+        color: #FFFFFF;
+        margin-bottom: 10px;
+        line-height: 1.3;
+    }
+    
+    /* Details (Time, Venue) */
+    .event-detail {
+        font-size: 13px;
+        color: #A0AEC0;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+    }
+    
+    /* Bottom Row: Price & Button */
+    .card-footer-row {
+        margin-top: auto;
+        padding-top: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 1px solid #2D303E;
+    }
+    .event-price {
+        font-size: 20px;
+        font-weight: bold;
+        color: #FFFFFF;
+    }
+    .get-tickets-btn {
+        background-color: #3B82F6;
+        color: white !important;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: bold;
+        text-align: center;
+    }
+    .get-tickets-btn:hover {
+        background-color: #2563EB;
+    }
+    
+    /* Deal Description Text */
+    .deal-text {
+        font-size: 12px;
+        color: #60A5FA;
+        margin-top: 10px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # --- DATA SERVING FUNCTION ---
 @st.cache_data(ttl=3600)
 def fetch_data():
     try:
         conn = psycopg2.connect(
-            host=DB_HOST,
-            database=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            port=DB_PORT
+            host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASSWORD, port=DB_PORT
         )
-        
-        # --- THE GHOST DATA FIX ---
-        # Added 'WHERE event_date >= CURRENT_DATE' to filter out past events
         query = """
             SELECT title, event_date, venue, neighborhood, price_min, category, deal_description, is_discounted, lat, lon 
             FROM raw_events 
@@ -43,7 +139,6 @@ def fetch_data():
         df = pd.read_sql(query, conn)
         conn.close()
         
-        # Tell Pandas to treat this column as a true Date/Time object
         if 'event_date' in df.columns:
             df['event_date'] = pd.to_datetime(df['event_date'])
             
@@ -52,21 +147,26 @@ def fetch_data():
         st.error(f"Database connection failed: {e}")
         return pd.DataFrame()
 
-# Fetch the data
 df = fetch_data()
 
-# --- THE USER INTERFACE ---
+# --- HEADER & FILTERS ---
+st.title("🎭 Chicago Entertainment Planner")
+
 if not df.empty:
-    st.subheader("Filter Events")
-    col1, col2 = st.columns(2)
+    # Top Control Bar
+    col1, col2, col3 = st.columns([2, 2, 6])
     
     with col1:
         categories = ["All"] + list(df['category'].unique())
-        selected_category = st.selectbox("Select Category", categories)
+        selected_category = st.selectbox("Filter by Category", categories, label_visibility="collapsed")
         
     with col2:
-        show_only_free = st.checkbox("Show Only Free Events ($0.00)")
-
+        st.write("") # Spacer
+        show_only_free = st.toggle("Free Events Only")
+        
+    with col3:
+        st.write("") # Spacer
+        
     # Apply filters
     filtered_df = df.copy()
     if selected_category != "All":
@@ -74,106 +174,97 @@ if not df.empty:
     if show_only_free:
         filtered_df = filtered_df[filtered_df['price_min'] == 0.0]
 
-    # --- 1. THE DATA TABLE (Moved to Top) ---
-    st.write("---")
-    st.subheader("📋 Event Details")
-    
-    # Display the final data
-    st.dataframe(
-        filtered_df, 
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "price_min": st.column_config.NumberColumn("Minimum Price ($)", format="$%.2f"),
-            "event_date": st.column_config.DatetimeColumn("Date & Time", format="MMM DD, YYYY - hh:mm a"),
-            "deal_description": st.column_config.LinkColumn("Deal / Link"), # Makes URLs clickable in the table too!
-            "lat": None, # Hides the raw coordinate column from users
-            "lon": None  # Hides the raw coordinate column from users
-        }
-    )
-    
-    st.metric(label="Total Events in Database", value=len(filtered_df))
+    st.markdown(f"<div style='text-align: right; color: #A0AEC0; margin-bottom: 20px;'>Showing <b>{len(filtered_df)}</b> Events</div>", unsafe_allow_html=True)
 
+    # --- TABS LAYOUT ---
+    tab1, tab2 = st.tabs(["📇 Event Feed", "📍 Live Map"])
 
-    # --- 2. THE INTERACTIVE MAP (Moved to Bottom) ---
-    st.write("---")
-    st.subheader("🗺️ Live Event Map")
-
-    # Filter out any rows that don't have coordinates
-    map_df = filtered_df.dropna(subset=['lat', 'lon'])
-
-    if not map_df.empty:
-        # Create the Base Map centered on Chicago
-        chicago_map = folium.Map(location=[41.8781, -87.6298], zoom_start=11, tiles="CartoDB dark_matter")
-
-        # Group events by Venue
-        grouped = map_df.groupby(['venue', 'lat', 'lon'])
-
-        for (venue, lat, lon), group in grouped:
-            event_count = len(group)
+    # --- TAB 1: EVENT FEED (LOVABLE CARDS) ---
+    with tab1:
+        # Create rows of 3 columns
+        cols = st.columns(3)
+        
+        for index, row in filtered_df.iterrows():
+            # Figure out which column this card goes into (0, 1, or 2)
+            col_idx = index % 3
             
-            # Build a rich HTML Pop-up
-            popup_html = f"""
-            <div style="width: 320px; max-height: 250px; overflow-y: auto; font-family: Arial, sans-serif; color: #333;">
-                <h4 style="margin-top: 0; margin-bottom: 5px; color: #E50914;">{venue}</h4>
-                <div style="font-size: 12px; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">
-                    <b>{event_count} Event(s) happening here</b>
+            # Format Data
+            date_str = row['event_date'].strftime('%b %d, %Y - %I:%M %p') if pd.notnull(row['event_date']) else 'Time TBA'
+            
+            if pd.isna(row['price_min']):
+                price_str = "Varies" 
+            elif row['price_min'] > 0:
+                price_str = f"${row['price_min']:.2f}"
+            else:
+                price_str = "FREE"
+                
+            deal_desc = str(row['deal_description']) if pd.notnull(row['deal_description']) else ""
+            is_link = deal_desc.startswith('http')
+            
+            btn_text = "Get Tickets" if is_link and "ticket" in deal_desc.lower() else "More Info"
+            btn_link = deal_desc if is_link else "#"
+            deal_note = f"💡 {deal_desc}" if not is_link and deal_desc else ""
+
+            # HTML Card Injection
+            card_html = f"""
+            <div class="event-card">
+                <div class="card-header-row">
+                    <span class="category-pill">{row['category']}</span>
+                    {'<span class="deal-pill">Deal</span>' if deal_desc else ''}
                 </div>
+                
+                <div class="event-title">{row['title']}</div>
+                
+                <div class="event-detail">📅 {date_str}</div>
+                <div class="event-detail">📍 {row['venue']}</div>
+                
+                <div class="card-footer-row">
+                    <div class="event-price">{price_str}</div>
+                    <a href="{btn_link}" target="_blank" class="get-tickets-btn">{btn_text}</a>
+                </div>
+                
+                <div class="deal-text">{deal_note}</div>
+            </div>
             """
             
-            # Loop through every single event at this venue
-            for _, row in group.iterrows():
-                date_str = row['event_date'].strftime('%b %d, %Y - %I:%M %p') if pd.notnull(row['event_date']) else 'Time TBA'
-                
-                # --- NEW: SMART PRICE DISPLAY ---
-                if pd.isna(row['price_min']):
-                    price_str = "Check Link" # Displays this if Ticketmaster hides the price
-                elif row['price_min'] > 0:
-                    price_str = f"${row['price_min']:.2f}"
-                else:
-                    price_str = "Free"
-                
-                popup_html += f"""
-                <div style="margin-bottom: 12px;">
-                    <strong style="font-size: 14px;">{row['title']}</strong><br>
-                    <span style="font-size: 12px;">📅 {date_str}</span><br>
-                    <span style="font-size: 12px;">🎟️ {row['category']} | 💵 {price_str}</span><br>
-                """
-                
-                # --- SMART LINK LOGIC ---
-                if pd.notnull(row['deal_description']):
-                    desc = str(row['deal_description'])
-                    # Check if it's a URL
-                    if desc.startswith('http'):
-                        popup_html += f'<span style="font-size: 11px;">🔗 <a href="{desc}" target="_blank" style="color: #1E90FF; text-decoration: none;"><b>Website</b></a></span><br>'
-                    else:
-                        popup_html += f'<span style="font-size: 11px; color: #666;">💡 <i>{desc}</i></span><br>'
-                
-                popup_html += "</div>"
-            
-            popup_html += "</div>"
+            # Render card in the correct column
+            with cols[col_idx]:
+                st.markdown(card_html, unsafe_allow_html=True)
 
-            # Create a dynamic numbered icon
-            icon = plugins.BeautifyIcon(
-                icon_shape='marker',
-                number=event_count,
-                border_color='#E50914',
-                text_color='#E50914',
-                background_color='white'
-            )
+    # --- TAB 2: LIVE MAP ---
+    with tab2:
+        map_df = filtered_df.dropna(subset=['lat', 'lon'])
 
-            # Add the marker to the map
-            folium.Marker(
-                location=[lat, lon],
-                popup=folium.Popup(popup_html, max_width=350),
-                tooltip=f"Click to see {event_count} event(s) at {venue}",
-                icon=icon
-            ).add_to(chicago_map)
+        if not map_df.empty:
+            chicago_map = folium.Map(location=[41.8781, -87.6298], zoom_start=11, tiles="CartoDB dark_matter")
+            grouped = map_df.groupby(['venue', 'lat', 'lon'])
 
-        # Display the map in Streamlit
-        st_folium(chicago_map, width=1200, height=500, returned_objects=[])
-    else:
-        st.info("No spatial data available for the current filters.")
+            for (venue, lat, lon), group in grouped:
+                event_count = len(group)
+                
+                popup_html = f"""<div style="width: 250px; font-family: Arial; color: #333;">
+                    <h4 style="margin-top: 0; color: #3B82F6;">{venue}</h4>
+                    <p><b>{event_count} Event(s)</b></p>
+                </div>"""
+
+                icon = plugins.BeautifyIcon(
+                    icon_shape='marker',
+                    number=event_count,
+                    border_color='#3B82F6',
+                    text_color='#3B82F6',
+                    background_color='#1A1C23'
+                )
+
+                folium.Marker(
+                    location=[lat, lon],
+                    popup=folium.Popup(popup_html, max_width=300),
+                    tooltip=f"{venue}",
+                    icon=icon
+                ).add_to(chicago_map)
+
+            st_folium(chicago_map, width="100%", height=600, returned_objects=[])
+        else:
+            st.info("No spatial data available for the current filters.")
 
 else:
     st.warning("No data found. Is the ETL pipeline running?")
