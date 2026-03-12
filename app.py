@@ -78,11 +78,22 @@ st.markdown("""
         color: var(--primary) !important;
     }
 
-/* 3. Live Badge Ripple Effect */
+/* 3. Live Badge Ripple & Radar Effects */
     @keyframes ripple-wave {
         0% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.8); }
         100% { box-shadow: 0 0 0 12px rgba(0, 230, 118, 0); }
     }
+    
+    /* New animation: Increases brightness and adds a neon glow, then returns to normal */
+    @keyframes radar-glow {
+        0%, 100% { 
+            filter: brightness(1) drop-shadow(0 0 0px rgba(0, 230, 118, 0)); 
+        }
+        50% { 
+            filter: brightness(1.4) drop-shadow(0 0 5px rgba(0, 230, 118, 0.8)); 
+        }
+    }
+
     .live-badge {
         display: inline-flex;
         align-items: center;
@@ -93,7 +104,7 @@ st.markdown("""
         font-size: 13px;
         font-weight: 600;
         margin-bottom: 15px;
-        gap: 6px; /* Adds clean spacing between dot, radar, and text */
+        gap: 6px;
     }
     .pulse-dot {
         width: 8px; 
@@ -102,12 +113,15 @@ st.markdown("""
         border-radius: 50%;
         animation: ripple-wave 1.5s infinite cubic-bezier(0.25, 0.8, 0.25, 1);
     }
+    .radar-icon {
+        animation: radar-glow 2s infinite ease-in-out; /* Applies the new brightening blink */
+    }
     .live-count {
-        color: var(--success); /* Makes the number neon green */
+        color: var(--success);
         font-weight: 700;
     }
     .live-text {
-        color: var(--muted-foreground); /* Makes "Live Events" grey */
+        color: var(--muted-foreground);
     }
 
     /* 4. Glassmorphism Event Card */
@@ -230,14 +244,14 @@ if not df.empty:
     with colA:
         st.markdown("<h2 style='color: white; margin-bottom: 0; font-family: Inter;'>⚡ Chicago Entertainment Planner</h2>", unsafe_allow_html=True)
     with colB:
-        # Implemented ripple dot, SVG radar waves, and split text colors
         st.markdown(f"""
         <div style="text-align: right; margin-top: 10px;">
             <div class="live-badge">
                 <div class="pulse-dot"></div>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00E676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg class="radar-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00E676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M4.9 19.1c-3.9-3.9-3.9-10.3 0-14.2"></path>
                     <path d="M8.4 15.6c-2-2-2-5.2 0-7.2"></path>
+                    <circle cx="12" cy="12" r="2" fill="#00E676" stroke="none"></circle>
                     <path d="M15.6 8.4c2 2 2 5.2 0 7.2"></path>
                     <path d="M19.1 4.9c3.9 3.9 3.9 10.3 0 14.2"></path>
                 </svg>
