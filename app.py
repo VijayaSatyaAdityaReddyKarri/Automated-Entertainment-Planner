@@ -18,11 +18,11 @@ DB_NAME = "postgres"
 # Page configuration
 st.set_page_config(page_title="Chicago Entertainment Planner", layout="wide", initial_sidebar_state="collapsed")
 
-# --- CUSTOM CSS FOR LOVABLE DESIGN ---
+# --- CUSTOM CSS FOR REFINED DARK MODE ---
 st.markdown("""
 <style>
-    /* Force Dark Backgrounds */
-    .stApp { background-color: #09090B; }
+    /* Richer Midnight Background */
+    .stApp { background-color: #0B0F19; }
     
     /* Hide Streamlit Header/Footer */
     header {visibility: hidden;}
@@ -37,11 +37,11 @@ st.markdown("""
     .live-badge {
         display: inline-flex;
         align-items: center;
-        background-color: #18181B;
+        background-color: #151B2B; /* Slightly lighter than bg */
         padding: 6px 12px;
         border-radius: 20px;
-        border: 1px solid #27272A;
-        color: #A1A1AA;
+        border: 1px solid #1E293B;
+        color: #94A3B8;
         font-size: 14px;
         font-weight: 600;
         margin-bottom: 15px;
@@ -55,14 +55,14 @@ st.markdown("""
         animation: pulse 2s infinite;
     }
 
-    /* Custom Event Card */
+    /* Elevated Event Card */
     .event-card {
-        background-color: #18181B;
+        background-color: #111827; /* Rich Slate */
         border-radius: 12px;
         padding: 20px;
         margin-bottom: 20px;
-        border: 1px solid #27272A;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        border: 1px solid #1E293B; /* Subtle border */
+        box-shadow: 0 4px 6px rgba(0,0,0,0.4);
         transition: transform 0.2s, border-color 0.2s;
         height: 100%;
         display: flex;
@@ -71,6 +71,7 @@ st.markdown("""
     .event-card:hover {
         transform: translateY(-4px);
         border-color: #3B82F6;
+        box-shadow: 0 8px 12px rgba(0,0,0,0.5);
     }
     
     /* Top Row: Category & Deal Badge */
@@ -100,13 +101,13 @@ st.markdown("""
     .event-title {
         font-size: 18px;
         font-weight: 700;
-        color: #FAFAFA;
+        color: #F8FAFC;
         margin-bottom: 10px;
         line-height: 1.3;
     }
     .event-detail {
         font-size: 13px;
-        color: #A1A1AA;
+        color: #94A3B8;
         margin-bottom: 6px;
     }
     
@@ -117,12 +118,12 @@ st.markdown("""
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-top: 1px solid #27272A;
+        border-top: 1px solid #1E293B;
     }
     .event-price {
         font-size: 20px;
         font-weight: 700;
-        color: #FAFAFA;
+        color: #F8FAFC;
     }
     .get-tickets-btn {
         background-color: #3B82F6;
@@ -226,8 +227,13 @@ if not df.empty:
             deal_desc = str(row['deal_description']) if pd.notnull(row['deal_description']) else ""
             is_link = deal_desc.startswith('http')
             
-            btn_text = "Get Tickets" if is_link and "ticket" in deal_desc.lower() else "More Info"
-            btn_link = deal_desc if is_link else "#"
+            # FIX: Only create the button HTML if there is a real website link
+            if is_link:
+                btn_text = "Get Tickets" if "ticket" in deal_desc.lower() else "More Info"
+                btn_html = f'<a href="{deal_desc}" target="_blank" class="get-tickets-btn">{btn_text}</a>'
+            else:
+                btn_html = '' # No button!
+                
             deal_note = f"💡 {deal_desc}" if not is_link and deal_desc else ""
 
             card_html = f"""
@@ -241,7 +247,7 @@ if not df.empty:
                 <div class="event-detail">📍 {row['venue']}</div>
                 <div class="card-footer-row">
                     <div class="event-price">{price_str}</div>
-                    <a href="{btn_link}" target="_blank" class="get-tickets-btn">{btn_text}</a>
+                    {btn_html}
                 </div>
                 <div class="deal-text">{deal_note}</div>
             </div>
@@ -255,7 +261,8 @@ if not df.empty:
         map_df = filtered_df.dropna(subset=['lat', 'lon'])
 
         if not map_df.empty:
-            chicago_map = folium.Map(location=[41.8781, -87.6298], zoom_start=11, tiles="CartoDB dark_matter")
+            # FIX: Added scrollWheelZoom=False to prevent map scroll trapping
+            chicago_map = folium.Map(location=[41.8781, -87.6298], zoom_start=11, tiles="CartoDB dark_matter", scrollWheelZoom=False)
             grouped = map_df.groupby(['venue', 'lat', 'lon'])
 
             for (venue, lat, lon), group in grouped:
@@ -270,7 +277,7 @@ if not df.empty:
                     number=event_count,
                     border_color='#3B82F6',
                     text_color='#3B82F6',
-                    background_color='#18181B'
+                    background_color='#111827'
                 )
 
                 folium.Marker(
