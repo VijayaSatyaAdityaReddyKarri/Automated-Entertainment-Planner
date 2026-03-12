@@ -78,7 +78,7 @@ st.markdown("""
         color: var(--primary) !important;
     }
 
-    /* 3. Live Badge Ripple Effect */
+/* 3. Live Badge Ripple Effect */
     @keyframes ripple-wave {
         0% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.8); }
         100% { box-shadow: 0 0 0 12px rgba(0, 230, 118, 0); }
@@ -90,23 +90,24 @@ st.markdown("""
         padding: 6px 12px;
         border-radius: 20px;
         border: 1px solid var(--border);
-        color: var(--muted-foreground);
         font-size: 13px;
         font-weight: 600;
         margin-bottom: 15px;
+        gap: 6px; /* Adds clean spacing between dot, radar, and text */
     }
     .pulse-dot {
         width: 8px; 
         height: 8px;
         background-color: var(--success);
         border-radius: 50%;
-        margin-right: 8px;
-        /* The ripple animation makes a wave expand and dissolve */
         animation: ripple-wave 1.5s infinite cubic-bezier(0.25, 0.8, 0.25, 1);
     }
+    .live-count {
+        color: var(--success); /* Makes the number neon green */
+        font-weight: 700;
+    }
     .live-text {
-        color: var(--foreground);
-        margin-left: 4px;
+        color: var(--muted-foreground); /* Makes "Live Events" grey */
     }
 
     /* 4. Glassmorphism Event Card */
@@ -229,12 +230,19 @@ if not df.empty:
     with colA:
         st.markdown("<h2 style='color: white; margin-bottom: 0; font-family: Inter;'>⚡ Chicago Entertainment Planner</h2>", unsafe_allow_html=True)
     with colB:
-        # Implemented new ripple dot and matched formatting from the Lovable screenshot
+        # Implemented ripple dot, SVG radar waves, and split text colors
         st.markdown(f"""
         <div style="text-align: right; margin-top: 10px;">
             <div class="live-badge">
                 <div class="pulse-dot"></div>
-                <span class="live-text">{len(df)} Live Events</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00E676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4.9 19.1c-3.9-3.9-3.9-10.3 0-14.2"></path>
+                    <path d="M8.4 15.6c-2-2-2-5.2 0-7.2"></path>
+                    <path d="M15.6 8.4c2 2 2 5.2 0 7.2"></path>
+                    <path d="M19.1 4.9c3.9 3.9 3.9 10.3 0 14.2"></path>
+                </svg>
+                <span class="live-count">{len(df)}</span>
+                <span class="live-text">Live Events</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
