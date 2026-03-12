@@ -15,33 +15,61 @@ DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_PORT = "5432"
 DB_NAME = "postgres"
 
-# Page configuration - Set to wide mode and dark theme
+# Page configuration
 st.set_page_config(page_title="Chicago Entertainment Planner", layout="wide", initial_sidebar_state="collapsed")
 
 # --- CUSTOM CSS FOR LOVABLE DESIGN ---
 st.markdown("""
 <style>
-    /* Main Background & Text */
-    .stApp {
-        background-color: #0E1117;
-        color: #FAFAFA;
-    }
+    /* Force Dark Backgrounds */
+    .stApp { background-color: #09090B; }
     
+    /* Hide Streamlit Header/Footer */
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Pulsing Green Dot Animation */
+    @keyframes pulse {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+    .live-badge {
+        display: inline-flex;
+        align-items: center;
+        background-color: #18181B;
+        padding: 6px 12px;
+        border-radius: 20px;
+        border: 1px solid #27272A;
+        color: #A1A1AA;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 15px;
+    }
+    .pulse-dot {
+        width: 8px;
+        height: 8px;
+        background-color: #22c55e;
+        border-radius: 50%;
+        margin-right: 8px;
+        animation: pulse 2s infinite;
+    }
+
     /* Custom Event Card */
     .event-card {
-        background-color: #1A1C23;
+        background-color: #18181B;
         border-radius: 12px;
         padding: 20px;
         margin-bottom: 20px;
-        border: 1px solid #2D303E;
+        border: 1px solid #27272A;
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        transition: transform 0.2s;
+        transition: transform 0.2s, border-color 0.2s;
         height: 100%;
         display: flex;
         flex-direction: column;
     }
     .event-card:hover {
-        transform: translateY(-5px);
+        transform: translateY(-4px);
         border-color: #3B82F6;
     }
     
@@ -52,7 +80,7 @@ st.markdown("""
         margin-bottom: 12px;
     }
     .category-pill {
-        background-color: rgba(59, 130, 246, 0.2);
+        background-color: rgba(59, 130, 246, 0.15);
         color: #60A5FA;
         padding: 4px 10px;
         border-radius: 20px;
@@ -60,7 +88,7 @@ st.markdown("""
         font-weight: 600;
     }
     .deal-pill {
-        background-color: rgba(16, 185, 129, 0.2);
+        background-color: rgba(16, 185, 129, 0.15);
         color: #34D399;
         padding: 4px 10px;
         border-radius: 20px;
@@ -68,37 +96,33 @@ st.markdown("""
         font-weight: 600;
     }
     
-    /* Title */
+    /* Typography */
     .event-title {
         font-size: 18px;
-        font-weight: bold;
-        color: #FFFFFF;
+        font-weight: 700;
+        color: #FAFAFA;
         margin-bottom: 10px;
         line-height: 1.3;
     }
-    
-    /* Details (Time, Venue) */
     .event-detail {
         font-size: 13px;
-        color: #A0AEC0;
+        color: #A1A1AA;
         margin-bottom: 6px;
-        display: flex;
-        align-items: center;
     }
     
-    /* Bottom Row: Price & Button */
+    /* Bottom Row */
     .card-footer-row {
         margin-top: auto;
         padding-top: 15px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-top: 1px solid #2D303E;
+        border-top: 1px solid #27272A;
     }
     .event-price {
         font-size: 20px;
-        font-weight: bold;
-        color: #FFFFFF;
+        font-weight: 700;
+        color: #FAFAFA;
     }
     .get-tickets-btn {
         background-color: #3B82F6;
@@ -108,16 +132,13 @@ st.markdown("""
         border-radius: 8px;
         font-size: 14px;
         font-weight: bold;
-        text-align: center;
+        transition: background-color 0.2s;
     }
-    .get-tickets-btn:hover {
-        background-color: #2563EB;
-    }
+    .get-tickets-btn:hover { background-color: #2563EB; }
     
-    /* Deal Description Text */
     .deal-text {
         font-size: 12px;
-        color: #60A5FA;
+        color: #FCD34D;
         margin-top: 10px;
     }
 </style>
@@ -149,11 +170,22 @@ def fetch_data():
 
 df = fetch_data()
 
-# --- HEADER & FILTERS ---
-st.title("🎭 Chicago Entertainment Planner")
-
 if not df.empty:
-    # Top Control Bar
+    # --- HEADER SECTION ---
+    colA, colB = st.columns([3, 1])
+    with colA:
+        st.markdown("<h2 style='color: white; margin-bottom: 0;'>🎭 Chicago Entertainment Planner</h2>", unsafe_allow_html=True)
+    with colB:
+        st.markdown(f"""
+        <div style="text-align: right; margin-top: 10px;">
+            <div class="live-badge">
+                <div class="pulse-dot"></div>
+                {len(df)} Live Events
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # --- FILTERS ---
     col1, col2, col3 = st.columns([2, 2, 6])
     
     with col1:
@@ -164,9 +196,6 @@ if not df.empty:
         st.write("") # Spacer
         show_only_free = st.toggle("Free Events Only")
         
-    with col3:
-        st.write("") # Spacer
-        
     # Apply filters
     filtered_df = df.copy()
     if selected_category != "All":
@@ -174,18 +203,14 @@ if not df.empty:
     if show_only_free:
         filtered_df = filtered_df[filtered_df['price_min'] == 0.0]
 
-    st.markdown(f"<div style='text-align: right; color: #A0AEC0; margin-bottom: 20px;'>Showing <b>{len(filtered_df)}</b> Events</div>", unsafe_allow_html=True)
-
     # --- TABS LAYOUT ---
+    st.write("") # Spacer
     tab1, tab2 = st.tabs(["📇 Event Feed", "📍 Live Map"])
 
-    # --- TAB 1: EVENT FEED (LOVABLE CARDS) ---
+    # --- TAB 1: EVENT FEED ---
     with tab1:
-        # Create rows of 3 columns
         cols = st.columns(3)
-        
-        for index, row in filtered_df.iterrows():
-            # Figure out which column this card goes into (0, 1, or 2)
+        for index, row in filtered_df.reset_index().iterrows():
             col_idx = index % 3
             
             # Format Data
@@ -205,29 +230,23 @@ if not df.empty:
             btn_link = deal_desc if is_link else "#"
             deal_note = f"💡 {deal_desc}" if not is_link and deal_desc else ""
 
-            # HTML Card Injection
             card_html = f"""
             <div class="event-card">
                 <div class="card-header-row">
                     <span class="category-pill">{row['category']}</span>
                     {'<span class="deal-pill">Deal</span>' if deal_desc else ''}
                 </div>
-                
                 <div class="event-title">{row['title']}</div>
-                
                 <div class="event-detail">📅 {date_str}</div>
                 <div class="event-detail">📍 {row['venue']}</div>
-                
                 <div class="card-footer-row">
                     <div class="event-price">{price_str}</div>
                     <a href="{btn_link}" target="_blank" class="get-tickets-btn">{btn_text}</a>
                 </div>
-                
                 <div class="deal-text">{deal_note}</div>
             </div>
             """
             
-            # Render card in the correct column
             with cols[col_idx]:
                 st.markdown(card_html, unsafe_allow_html=True)
 
@@ -241,7 +260,6 @@ if not df.empty:
 
             for (venue, lat, lon), group in grouped:
                 event_count = len(group)
-                
                 popup_html = f"""<div style="width: 250px; font-family: Arial; color: #333;">
                     <h4 style="margin-top: 0; color: #3B82F6;">{venue}</h4>
                     <p><b>{event_count} Event(s)</b></p>
@@ -252,7 +270,7 @@ if not df.empty:
                     number=event_count,
                     border_color='#3B82F6',
                     text_color='#3B82F6',
-                    background_color='#1A1C23'
+                    background_color='#18181B'
                 )
 
                 folium.Marker(
