@@ -17,7 +17,7 @@ DB_NAME = "postgres"
 
 # Page configuration
 st.set_page_config(page_title="Automated Entertainment Planner", layout="wide")
-st.title("🎟️ Chicago Automated Entertainment Planner")
+st.title("🎟️ Chicago Entertainment Planner")
 st.markdown("This dashboard serves live data extracted from Ticketmaster, Museums, and static sources via an automated ETL pipeline.")
 
 # --- DATA SERVING FUNCTION ---
@@ -31,9 +31,13 @@ def fetch_data():
             password=DB_PASSWORD,
             port=DB_PORT
         )
+        
+        # --- THE GHOST DATA FIX ---
+        # Added 'WHERE event_date >= CURRENT_DATE' to filter out past events
         query = """
             SELECT title, event_date, venue, neighborhood, price_min, category, deal_description, is_discounted, lat, lon 
             FROM raw_events 
+            WHERE event_date >= CURRENT_DATE
             ORDER BY event_date ASC, price_min ASC;
         """
         df = pd.read_sql(query, conn)
@@ -120,7 +124,14 @@ if not df.empty:
             # Loop through every single event at this venue
             for _, row in group.iterrows():
                 date_str = row['event_date'].strftime('%b %d, %Y - %I:%M %p') if pd.notnull(row['event_date']) else 'Time TBA'
-                price_str = f"${row['price_min']:.2f}" if row['price_min'] > 0 else "Free"
+                
+                # --- NEW: SMART PRICE DISPLAY ---
+                if pd.isna(row['price_min']):
+                    price_str = "Check Link" # Displays this if Ticketmaster hides the price
+                elif row['price_min'] > 0:
+                    price_str = f"${row['price_min']:.2f}"
+                else:
+                    price_str = "Free"
                 
                 popup_html += f"""
                 <div style="margin-bottom: 12px;">
@@ -129,7 +140,7 @@ if not df.empty:
                     <span style="font-size: 12px;">🎟️ {row['category']} | 💵 {price_str}</span><br>
                 """
                 
-                # --- NEW: SMART LINK LOGIC ---
+                # --- SMART LINK LOGIC ---
                 if pd.notnull(row['deal_description']):
                     desc = str(row['deal_description'])
                     # Check if it's a URL

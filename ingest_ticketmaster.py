@@ -1,8 +1,8 @@
 import psycopg2
 import requests
-from datetime import datetime
 import os
 from dotenv import load_dotenv
+from datetime import datetime, timezone
 
 # This loads the secrets from your .env file
 load_dotenv() 
@@ -19,15 +19,12 @@ def fetch_ticketmaster_events():
     print("Extracting live data from Ticketmaster API...")
     
     # --- Get current time in ISO 8601 format for Ticketmaster ---
-    # Example format: 2026-02-19T14:00:00Z
-    now_iso = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+    now_iso = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     
-    # --- Added &startDateTime= to the URL ---
     url = f"https://app.ticketmaster.com/discovery/v2/events.json?apikey={TM_API_KEY}&city=Chicago&size=10&sort=date,asc&startDateTime={now_iso}"
     
     response = requests.get(url)
     
-    # Check if the API call was successful
     if response.status_code != 200:
         print(f"❌ API Error: {response.status_code}")
         return []
@@ -54,44 +51,49 @@ def load_events_to_db(events):
         inserted_count = 0
         
         for event in events:
-            # --- THE "TRANSFORM" STEP ---
-            # APIs are messy. We use .get() to safely extract nested data without crashing.
+            # --- PARSING THE EVENT DATA ---
             title = event.get('name', 'Unknown Event')
             
-            # Extract Venue and City (Neighborhood) safely
+            # --- EXTRACT VENUE & LOCATION ---
             venues = event.get('_embedded', {}).get('venues', [{}])
             venue_name = venues[0].get('name', 'Unknown Venue')
             city_name = venues[0].get('city', {}).get('name', 'Chicago')
             
-            # --- NEW CODE: Extract Latitude and Longitude safely ---
             try:
                 lat = float(venues[0].get('location', {}).get('latitude'))
                 lon = float(venues[0].get('location', {}).get('longitude'))
             except (KeyError, IndexError, TypeError, ValueError):
-                # If Ticketmaster forgets to include coordinates, default to None (NULL in SQL)
                 lat = None
                 lon = None
 
-            # Extract minimum price (if available)
-            prices = event.get('priceRanges', [{}])
-            price_min = prices[0].get('min', 0.0)
-            
-            # Extract category (Music, Sports, etc.)
-            classifications = event.get('classifications', [{}])
-            category = classifications[0].get('segment', {}).get('name', 'Live Event')
-            
-            # Use the Ticketmaster URL as the description for now
+            # --- MISSING VARS FIX: CATEGORY & URL ---
+            classifications = event.get('classifications', [])
+            category = "Other"
+            if classifications:
+                category = classifications[0].get('segment', {}).get('name', 'Other')
+                
             event_url = event.get('url', 'No link available')
 
-            # Extract the date and time
-            event_date = event.get('dates', {}).get('start', {}).get('dateTime')
-            if not event_date: # Fallback if they only provide a day, not a time
-                event_date = event.get('dates', {}).get('start', {}).get('localDate')
-            if not event_date: # Ultimate fallback: use the current timestamp
-                event_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            # --- THE PRICE FIX ---
+            # Safely check if priceRanges actually exists and has data
+            price_ranges = event.get('priceRanges')
+            price_min = None  # <-- Changed from 0.0 to None
+            if price_ranges and isinstance(price_ranges, list) and len(price_ranges) > 0:
+                price_min = price_ranges[0].get('min', None) 
 
-            # --- THE "LOAD" STEP ---
-            # Notice we added lat and lon to the columns list and %s values!
+            # --- THE TIMEZONE FIX ---
+            # Explicitly grab the venue's local date and time instead of UTC
+            dates = event.get('dates', {}).get('start', {})
+            local_date = dates.get('localDate')
+            local_time = dates.get('localTime', '00:00:00') # Defaults to midnight if no time is given
+            
+            if local_date:
+                event_date = f"{local_date} {local_time}"
+            else:
+                # Ultimate fallback
+                event_date = dates.get('dateTime', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+            # --- DATABASE INSERTION ---
             cur.execute("""
                 INSERT INTO raw_events (title, venue, neighborhood, price_min, category, is_discounted, deal_description, event_date, lat, lon)
                 VALUES (%s, %s, %s, %s, %s, FALSE, %s, %s, %s, %s)
@@ -100,7 +102,7 @@ def load_events_to_db(events):
             inserted_count += 1
 
         conn.commit()
-        print(f"✅ Success! Loaded {inserted_count} live events with coordinates into the database.")
+        print(f"✅ Success! Loaded {inserted_count} polished events.")
         cur.close()
 
     except Exception as e:
@@ -111,7 +113,6 @@ def load_events_to_db(events):
             print("Database connection closed.")
 
 if __name__ == "__main__":
-    # Run the ETL Pipeline
     live_events = fetch_ticketmaster_events()
     if live_events:
         load_events_to_db(live_events)
