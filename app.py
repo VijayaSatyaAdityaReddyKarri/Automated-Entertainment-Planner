@@ -258,21 +258,21 @@ st.markdown("""
         gap: 8px;
         flex-wrap: wrap; /* allow wrapping on smaller screens */
     }
+    
+    /* Updated Pill CSS */
     .filter-pill {
+        display: inline-block;
         border-radius: 9999px;
-        padding: 6px 14px;
-        font-size: 0.8rem;
+        padding: 8px 16px;
+        font-size: 0.85rem;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.2s ease;
-        border: 1px solid transparent;
-        color: var(--muted-foreground);
-        background-color: transparent;
-        text-decoration: none; /* remove underline from links */
+        transition: all 0.3s ease;
+        text-decoration: none;
     }
-    
-    /* Unique hover style for inactive pills - glow matches the category's primary color */
-    /* active pills are handled by individual ID matching in the Python loop */
+    .filter-pill:hover {
+        transform: translateY(-2px);
+    }
 
 </style>
 
@@ -283,19 +283,31 @@ st.markdown("""
 def get_filter_pills_html(categories, current_selection):
     pills_html = ""
     
-    # "All" pill logic
-    all_is_active = current_selection == "All"
-    all_cat_color, all_cat_bg = CATEGORY_COLORS.get("All", ("#F8FAFC", "rgba(248, 250, 252, 0.1)"))
-    all_style = f"background-color: {all_cat_bg}; color: {all_cat_color}; border-color: {all_cat_color};" if all_is_active else f"color: {all_cat_color}AA; border-color: {all_cat_color}30;"
-    pills_html += f'<a href="#category=All" class="filter-pill" style="{all_style}">All</a>'
+    def make_pill(cat_name, cat_color, cat_bg, is_active):
+        # Use ? instead of # so Streamlit reads it as a query parameter
+        safe_cat = urllib.parse.quote_plus(cat_name)
+        href_link = f"?category={safe_cat}"
+        
+        if is_active:
+            # Active state: Full neon glow and colored background
+            style = f"background-color: {cat_bg}; color: {cat_color}; border: 1px solid {cat_color}; box-shadow: 0 0 12px {cat_bg};"
+            return f'<a href="{href_link}" target="_self" class="filter-pill" style="{style}">{cat_name}</a>'
+        else:
+            # Inactive state: Dark glass button, grey text. Lights up on hover via inline JS!
+            style = f"background-color: rgba(15, 23, 42, 0.6); color: #94A3B8; border: 1px solid rgba(255,255,255,0.1);"
+            hover_in = f"this.style.borderColor='{cat_color}'; this.style.color='{cat_color}'; this.style.backgroundColor='{cat_bg}'; this.style.boxShadow='0 0 8px {cat_bg}';"
+            hover_out = f"this.style.borderColor='rgba(255,255,255,0.1)'; this.style.color='#94A3B8'; this.style.backgroundColor='rgba(15, 23, 42, 0.6)'; this.style.boxShadow='none';"
+            return f'<a href="{href_link}" target="_self" class="filter-pill" style="{style}" onmouseover="{hover_in}" onmouseout="{hover_out}">{cat_name}</a>'
 
+    # Add "All" Pill
+    all_is_active = current_selection == "All"
+    pills_html += make_pill("All", "#F8FAFC", "rgba(248, 250, 252, 0.15)", all_is_active)
+
+    # Add dynamic category pills
     for cat in categories:
         is_active = current_selection == cat
         cat_color, cat_bg = CATEGORY_COLORS.get(cat, ("#94A3B8", "rgba(148, 163, 184, 0.15)")) 
-        
-        # Define styles for active vs inactive state
-        style = f"background-color: {cat_bg}; color: {cat_color}; border-color: {cat_color};" if is_active else f"color: {cat_color}AA; border-color: {cat_color}30;"
-        pills_html += f'<a href="#category={urllib.parse.quote_plus(cat)}" class="filter-pill" style="{style}">{cat}</a>'
+        pills_html += make_pill(cat, cat_color, cat_bg, is_active)
     
     return pills_html
 
