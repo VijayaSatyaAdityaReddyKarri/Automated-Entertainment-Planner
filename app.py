@@ -7,6 +7,7 @@ import folium
 import folium.plugins as plugins
 from streamlit_folium import st_folium
 import urllib.parse
+from datetime import datetime
 
 # Load database credentials
 load_dotenv()
@@ -19,13 +20,24 @@ DB_NAME = "postgres"
 # Page configuration
 st.set_page_config(page_title="Chicago Entertainment Planner", layout="wide", initial_sidebar_state="collapsed")
 
-# --- TRUE NEON / GLASSMORPHISM CSS ---
+# Dynamic Category Color Mapping (consistent everywhere)
+CATEGORY_COLORS = {
+    "Museum/Art": ("#B026FF", "rgba(176, 38, 255, 0.15)"),   
+    "Comedy": ("#FFB300", "rgba(255, 179, 0, 0.15)"),        
+    "Theater": ("#FF3366", "rgba(255, 51, 102, 0.15)"),      
+    "Music": ("#3B82F6", "rgba(59, 130, 246, 0.15)"),        
+    "Food & Drink": ("#00E676", "rgba(0, 230, 118, 0.15)"),  
+    "Sports": ("#F97316", "rgba(249, 115, 22, 0.15)"),       
+    "Movie": ("#06B6D4", "rgba(6, 182, 212, 0.15)"),
+    "undefined": ("#94A3B8", "rgba(148, 163, 184, 0.15)") # Special case from DB
+}
+
+# --- PURE CYBERPUNK CSS & BACKGROUND ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
     :root {
-        --background: #0B0F19; 
         --foreground: #F8FAFC;
         --card: rgba(15, 23, 42, 0.4); 
         --primary: #00D2FF; 
@@ -37,14 +49,33 @@ st.markdown("""
         --surface: rgba(15, 23, 42, 0.8);
     }
 
-    /* 1. Global App Styling */
+    /* Full-screen Blurred Background Image */
+    #background-container {
+        position: fixed;
+        width: 100vw;
+        height: 100vh;
+        background-image: url('https://images.unsplash.com/photo-1549474843-ed8344e43e2f?q=80&w=2070&auto=format&fit=crop&blur=8&brightness=0.3');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        z-index: -1;
+        opacity: 0.6; /* Dim it further for better readability */
+        backdrop-filter: blur(15px); /* Ensure base blur if image load fails */
+    }
+
+    /* Glassmorphism content container */
     [data-testid="stAppViewContainer"] {
-        background-color: var(--background);
         color: var(--foreground);
         font-family: 'Inter', sans-serif;
+        background-color: transparent;
     }
     header {visibility: hidden;}
     footer {visibility: hidden;}
+    
+    /* Adjust Streamlit block containers */
+    [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"] {
+        background-color: transparent !important;
+    }
 
     /* 2. Streamlit Tabs */
     [data-testid="stTabs"] [data-baseweb="tab-list"] {
@@ -78,13 +109,12 @@ st.markdown("""
         color: var(--primary) !important;
     }
 
-/* 3. Live Badge Ripple & Radar Effects */
+    /* 3. Live Badge Pulse */
     @keyframes ripple-wave {
         0% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.8); }
         100% { box-shadow: 0 0 0 12px rgba(0, 230, 118, 0); }
     }
     
-    /* New animation: Increases brightness and adds a neon glow, then returns to normal */
     @keyframes radar-glow {
         0%, 100% { 
             filter: brightness(1) drop-shadow(0 0 0px rgba(0, 230, 118, 0)); 
@@ -105,6 +135,7 @@ st.markdown("""
         font-weight: 600;
         margin-bottom: 15px;
         gap: 6px;
+        backdrop-filter: blur(10px);
     }
     .pulse-dot {
         width: 8px; 
@@ -114,7 +145,7 @@ st.markdown("""
         animation: ripple-wave 1.5s infinite cubic-bezier(0.25, 0.8, 0.25, 1);
     }
     .radar-icon {
-        animation: radar-glow 2s infinite ease-in-out; /* Applies the new brightening blink */
+        animation: radar-glow 2s infinite ease-in-out;
     }
     .live-count {
         color: var(--success);
@@ -200,19 +231,73 @@ st.markdown("""
     
     .deal-text { margin-top: 0.75rem; font-size: 0.75rem; color: var(--success); font-weight: 500; margin-bottom: 0; 
                  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+
+    /* 5. Custom Horizontal Pill Filter Bar */
+    .filter-pills-row {
+        background-color: var(--surface);
+        backdrop-filter: blur(10px);
+        padding: 10px;
+        border-radius: 0.75rem;
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .filter-label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--foreground);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-right: 5px;
+    }
+    .filter-pills-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap; /* allow wrapping on smaller screens */
+    }
+    .filter-pill {
+        border-radius: 9999px;
+        padding: 6px 14px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+        color: var(--muted-foreground);
+        background-color: transparent;
+        text-decoration: none; /* remove underline from links */
+    }
+    
+    /* Unique hover style for inactive pills - glow matches the category's primary color */
+    /* active pills are handled by individual ID matching in the Python loop */
+
 </style>
+
+<div id="background-container"></div>
 """, unsafe_allow_html=True)
 
-# Category Color Mapping
-CATEGORY_COLORS = {
-    "Museum/Art": ("#B026FF", "rgba(176, 38, 255, 0.15)"),   
-    "Comedy": ("#FFB300", "rgba(255, 179, 0, 0.15)"),        
-    "Theater": ("#FF3366", "rgba(255, 51, 102, 0.15)"),      
-    "Music": ("#3B82F6", "rgba(59, 130, 246, 0.15)"),        
-    "Food & Drink": ("#00E676", "rgba(0, 230, 118, 0.15)"),  
-    "Sports": ("#F97316", "rgba(249, 115, 22, 0.15)"),       
-    "Movie": ("#06B6D4", "rgba(6, 182, 212, 0.15)")          
-}
+# Function to generate the pill filter bar HTML
+def get_filter_pills_html(categories, current_selection):
+    pills_html = ""
+    
+    # "All" pill logic
+    all_is_active = current_selection == "All"
+    all_cat_color, all_cat_bg = CATEGORY_COLORS.get("All", ("#F8FAFC", "rgba(248, 250, 252, 0.1)"))
+    all_style = f"background-color: {all_cat_bg}; color: {all_cat_color}; border-color: {all_cat_color};" if all_is_active else f"color: {all_cat_color}AA; border-color: {all_cat_color}30;"
+    pills_html += f'<a href="#category=All" class="filter-pill" style="{all_style}">All</a>'
+
+    for cat in categories:
+        is_active = current_selection == cat
+        cat_color, cat_bg = CATEGORY_COLORS.get(cat, ("#94A3B8", "rgba(148, 163, 184, 0.15)")) 
+        
+        # Define styles for active vs inactive state
+        style = f"background-color: {cat_bg}; color: {cat_color}; border-color: {cat_color};" if is_active else f"color: {cat_color}AA; border-color: {cat_color}30;"
+        pills_html += f'<a href="#category={urllib.parse.quote_plus(cat)}" class="filter-pill" style="{style}">{cat}</a>'
+    
+    return pills_html
 
 @st.cache_data(ttl=3600)
 def fetch_data():
@@ -220,7 +305,8 @@ def fetch_data():
         conn = psycopg2.connect(
             host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASSWORD, port=DB_PORT
         )
-        query = """
+        # Use CURRENT_DATE to get events happening *today* or in the future
+        query = f"""
             SELECT title, event_date, venue, neighborhood, price_min, category, deal_description, is_discounted, lat, lon 
             FROM raw_events 
             WHERE event_date >= CURRENT_DATE
@@ -238,6 +324,12 @@ def fetch_data():
         return pd.DataFrame()
 
 df = fetch_data()
+
+# Handle pill selection via query params
+selected_cat = "All"
+query_params = st.experimental_get_query_params()
+if "category" in query_params:
+    selected_cat = urllib.parse.unquote_plus(query_params["category"][0])
 
 if not df.empty:
     colA, colB = st.columns([3, 1])
@@ -261,19 +353,35 @@ if not df.empty:
         </div>
         """, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([2, 2, 6])
-    
-    with col1:
-        categories = ["All"] + list(df['category'].dropna().unique())
-        selected_category = st.selectbox("Filter by Category", categories, label_visibility="collapsed")
+    # --- NEW UNIFIED HORIZONTAL FILTER ROW ---
+    st.write("") 
+    filter_container = st.container()
+    with filter_container:
+        # Create columns for the horizontal pills and the existing free-only toggle
+        f_pill_col, f_toggle_col = st.columns([10, 2])
         
-    with col2:
-        st.write("") 
-        show_only_free = st.toggle("Free Events Only")
-        
+        with f_pill_col:
+            # Generate the HTML for the pills
+            all_categories = list(df['category'].dropna().unique())
+            st.markdown(f"""
+            <div class="filter-pills-row">
+                <div class="filter-label">Filter by:</div>
+                <div class="filter-pills-container">
+                    {get_filter_pills_html(all_categories, selected_cat)}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with f_toggle_col:
+            # Shift it slightly to align with the new pills row
+            st.write("") 
+            st.write("")
+            show_only_free = st.toggle("Free Events Only")
+
+    # Apply all filters
     filtered_df = df.copy()
-    if selected_category != "All":
-        filtered_df = filtered_df[filtered_df['category'] == selected_category]
+    if selected_cat != "All":
+        filtered_df = filtered_df[filtered_df['category'] == selected_cat]
     if show_only_free:
         filtered_df = filtered_df[filtered_df['price_min'] == 0.0]
 
@@ -285,6 +393,7 @@ if not df.empty:
         for index, row in filtered_df.reset_index().iterrows():
             col_idx = index % 3
             
+            # Format date for the card
             date_str = row['event_date'].strftime('%b %d, %Y - %I:%M %p') if pd.notnull(row['event_date']) else 'Time TBA'
             
             if pd.isna(row['price_min']):
@@ -304,6 +413,7 @@ if not df.empty:
             else:
                 btn_text = "Search Event ↗"
                 btn_class = "btn-secondary" 
+                # Create a specific search query for the user
                 search_query = urllib.parse.quote_plus(f"{row['title']} {row['venue']} Chicago")
                 link_url = f"https://www.google.com/search?q={search_query}"
                 
@@ -313,6 +423,7 @@ if not df.empty:
             deal_badge = '<span class="pill-deal">Deal</span>' if deal_desc or row.get('is_discounted') else ''
             price_class = "price-free" if price_str == "FREE" else "price-text"
 
+            # Dynamic Category Color Logic
             cat_val = row['category']
             cat_color, cat_bg = CATEGORY_COLORS.get(cat_val, ("#94A3B8", "rgba(148, 163, 184, 0.15)")) 
 
@@ -353,6 +464,7 @@ if not df.empty:
             for (venue, lat, lon), group in grouped:
                 event_count = len(group)
                 
+                # Compiling multiple events per venue into a structured list
                 events_list_html = ""
                 for _, e_row in group.iterrows():
                     e_title = str(e_row['title']).replace("'", "&#39;")
@@ -375,6 +487,7 @@ if not df.empty:
                 </div>
                 """
 
+                # Matching BeautifyIcon color to the primary neon
                 icon = plugins.BeautifyIcon(
                     icon_shape='marker',
                     number=event_count,
