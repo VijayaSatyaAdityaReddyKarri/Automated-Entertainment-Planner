@@ -297,19 +297,26 @@ if not df.empty:
                     color, bg = CATEGORY_COLORS.get(cat, ("#94A3B8", "rgba(148, 163, 184, 0.15)"))
                 
                 if cat == selected_cat:
-                    # ✅ ACTIVE STATE
+                    # ✅ ACTIVE STATE (Explicitly targeting the 'p' tag for text color)
                     radio_css += f"""
                     [data-testid="stRadio"] div[role="radiogroup"] > label:nth-child({i}) {{
-                        background-color: {color} !important; color: #0B0F19 !important;
-                        border: 1px solid {color} !important; box-shadow: 0 0 15px {color} !important;
+                        background-color: {color} !important; 
+                        border: 1px solid {color} !important; 
+                        box-shadow: 0 0 15px {color} !important;
+                    }}
+                    [data-testid="stRadio"] div[role="radiogroup"] > label:nth-child({i}) p {{
+                        color: #0B0F19 !important; 
                     }}
                     """
                 else:
-                    # ✅ INACTIVE STATE (Colors preserved!)
+                    # ✅ INACTIVE STATE (Explicitly targeting the 'p' tag for text color)
                     radio_css += f"""
                     [data-testid="stRadio"] div[role="radiogroup"] > label:nth-child({i}) {{
-                        background-color: {bg} !important; color: {color} !important;
+                        background-color: {bg} !important; 
                         border: 1px solid {color} !important;
+                    }}
+                    [data-testid="stRadio"] div[role="radiogroup"] > label:nth-child({i}) p {{
+                        color: {color} !important;
                     }}
                     [data-testid="stRadio"] div[role="radiogroup"] > label:nth-child({i}):hover {{
                         box-shadow: 0 0 12px {color} !important; transform: translateY(-2px) !important;
