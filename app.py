@@ -327,9 +327,8 @@ df = fetch_data()
 
 # Handle pill selection via query params
 selected_cat = "All"
-query_params = st.experimental_get_query_params()
-if "category" in query_params:
-    selected_cat = urllib.parse.unquote_plus(query_params["category"][0])
+if "category" in st.query_params:
+    selected_cat = urllib.parse.unquote_plus(st.query_params["category"])
 
 if not df.empty:
     colA, colB = st.columns([3, 1])
