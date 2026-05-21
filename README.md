@@ -31,3 +31,5 @@ This project is an end-to-end automated Data Engineering pipeline designed to ex
    ```bash
    git clone [https://github.com/VijayaSatyaAdityaReddyKarri/Automated-Entertainment-Planner/tree/main](https://github.com/VijayaSatyaAdityaReddyKarri/Automated-Entertainment-Planner/tree/main)
    cd Automated-Entertainment-Planner
+
+   
